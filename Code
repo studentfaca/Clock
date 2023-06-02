@@ -1,0 +1,196 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Ds1302.h>
+
+ 
+
+// Verbindung zwischen Arduino und RTC-Modul
+const int rtcDataPin = 8;
+const int rtcClockPin = 7;
+const int rtcCePin = 6;
+Ds1302 rtc(rtcDataPin, rtcClockPin, rtcCePin);
+
+ 
+
+// Verbindung zwischen Arduino und LCD
+const int lcdAddress = 0x27; // Adresse des LCD-Moduls
+const int lcdColumns = 16; // Anzahl der Spalten des LCD-Moduls
+const int lcdRows = 2; // Anzahl der Zeilen des LCD-Moduls
+LiquidCrystal_I2C lcd(lcdAddress, lcdColumns, lcdRows);
+
+ 
+
+// Verbindung zwischen Arduino und Tastern
+const int hourButtonPin = 2; // Pin des Stunden-Tasters
+const int minuteButtonPin = 3; // Pin des Minuten-Tasters
+const int alarmButtonPin = 4; // Pin des Wecker-Tasters
+const int speakerPin = 5; // Pin des Lautsprechers
+
+ 
+
+// Variable für die aktuelle Uhrzeit
+int currentHour;
+int currentMinute;
+
+ 
+
+// Variable für die Weckzeit
+int alarmHour;
+int alarmMinute;
+
+ 
+
+// Variable, um den Lautsprecherzustand zu verfolgen
+bool speakerOn = false;
+
+ 
+
+// Funktion zum Aktualisieren der Uhrzeit
+void updateCurrentTime() {
+  Ds1302::DateTime now;
+    rtc.getDateTime(&now);
+}
+
+ 
+
+// Funktion zum Aktualisieren der Weckzeit
+void updateAlarmTime() {
+  alarmHour = currentHour;
+  alarmMinute = currentMinute;
+}
+
+ 
+
+// Funktion zum Anzeigen der Uhrzeit und Weckzeit auf dem LCD
+void displayTime() {
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+  lcd.print(currentHour);
+  lcd.print(":");
+  lcd.backlight();
+  if (currentMinute < 10) {
+    lcd.print("0");
+  }
+  lcd.print(currentMinute);
+
+ 
+
+  lcd.setCursor(0, 1);
+  lcd.print("Alarm: ");
+  lcd.print(alarmHour);
+  lcd.print(":");
+  if (alarmMinute < 10) {
+    lcd.print("0");
+  }
+  lcd.print(alarmMinute);
+}
+
+ 
+
+void setup() {
+  // Initialisierung des LCD
+  lcd.begin(lcdColumns, lcdRows);
+
+ 
+
+  // Initialisierung der RTC
+  if (rtc.isHalted())
+    {
+        Serial.println("RTC is halted. Setting time...");
+
+ 
+
+        Ds1302::DateTime dt = {
+            .year = 17,
+            .month = Ds1302::MONTH_OCT,
+            .day = 3,
+            .hour = 4,
+            .minute = 51,
+            .second = 30,
+            .dow = Ds1302::DOW_TUE
+        };
+
+ 
+
+        rtc.setDateTime(&dt);
+    }
+
+ 
+
+  // Initialisierung der Taster-Pins
+  pinMode(hourButtonPin, INPUT_PULLUP);
+  pinMode(minuteButtonPin, INPUT_PULLUP);
+  pinMode(alarmButtonPin, INPUT_PULLUP);
+  pinMode(speakerPin, OUTPUT);
+
+ 
+
+  // Aktualisierung der Uhrzeit und Weckzeit
+  updateCurrentTime();
+  updateAlarmTime();
+
+ 
+
+  // Anzeige der Uhrzeit und Weckzeit auf dem LCD
+  displayTime();
+}
+
+ 
+
+void loop() {
+  // Überprüfen, ob der Stunden-Taster gedrückt wurde
+  if (digitalRead(hourButtonPin) == LOW) {
+    delay(100); // Entprellzeit
+    currentHour = (currentHour + 1) % 24; // Inkrementiere die Stunden um 1 (0-23)
+    displayTime();
+  }
+
+ 
+
+  // Überprüfen, ob der Minuten-Taster gedrückt wurde
+  if (digitalRead(minuteButtonPin) == LOW) {
+    delay(100); // Entprellzeit
+    currentMinute = (currentMinute + 1) % 60; // Inkrementiere die Minuten um 1 (0-59)
+    displayTime();
+  }
+
+ 
+
+  // Überprüfen, ob der Wecker-Taster gedrückt wurde
+  if (digitalRead(alarmButtonPin) == LOW) {
+    delay(100); // Entprellzeit
+
+ 
+
+    // Überprüfen, ob der Lautsprecher bereits aktiviert ist
+    if (speakerOn) {
+      digitalWrite(speakerPin, LOW); // Lautsprecher ausschalten
+      speakerOn = false;
+    } else {
+      digitalWrite(speakerPin, HIGH); // Lautsprecher einschalten
+      speakerOn = true;
+    }
+  }
+
+ 
+
+  // Aktualisierung der aktuellen Uhrzeit
+  updateCurrentTime();
+
+ 
+
+  // Überprüfen, ob die Weckzeit erreicht wurde
+  if (currentHour == alarmHour && currentMinute == alarmMinute) {
+    digitalWrite(speakerPin, HIGH); // Lautsprecher einschalten
+    speakerOn = true;
+  }
+
+ 
+
+  // Aktualisierung der Uhrzeit auf dem LCD
+  displayTime();
+
+ 
+
+  delay(100); // Warte 0.1 Sekunde
+}
